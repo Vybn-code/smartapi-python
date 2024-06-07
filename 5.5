@@ -1,0 +1,97 @@
+import time
+import json
+import requests
+
+# Replace with your actual Angel One SmartAPI credentials
+api_key = "YOUR_API_KEY"
+user_id = "YOUR_USER_ID"
+password = "YOUR_PASSWORD"
+access_token = None  # Placeholder, will be fetched
+
+# Function to fetch access token using login credentials
+def get_access_token():
+    global access_token
+    url = "https://api.angelbroking.com/auth/login"
+    payload = {"user_id": user_id, "password": password, "api_key": api_key}
+    headers = {"Content-Type": "application/json"}
+    response = requests.post(url, json=payload, headers=headers)
+
+    if response.status_code == 200:
+        data = response.json()
+        access_token = data["data"]["access_token"]
+    else:
+        print(f"Error fetching access token: {response.text}")
+        exit(1)
+
+# Function to get instrument information (symbol, exchange, token)
+def get_instrument_info(symbol):
+    url = "https://api.angelbroking.com/data/instruments"
+    params = {"product_type": "index", "symbol": symbol}
+    headers = {"Authorization": f"Bearer {access_token}"}
+    response = requests.get(url, params=params, headers=headers)
+
+    if response.status_code == 200:
+        data = response.json()
+        instruments = data["data"]["instruments"]
+        if instruments:
+            return instruments[0]  # Assuming only one instrument for the symbol
+        else:
+            print(f"Instrument '{symbol}' not found")
+            return None
+    else:
+        print(f"Error fetching instrument information: {response.text}")
+        return None
+
+# Function to get real-time market data (opening high/low, last price)
+def get_market_data(instrument_token):
+    url = "https://api.angelbroking.com/live/instrument/quote"
+    params = {"token": instrument_token}
+    headers = {"Authorization": f"Bearer {access_token}"}
+    response = requests.get(url, params=params, headers=headers)
+
+    if response.status_code == 200:
+        data = response.json()
+        return data["data"]
+    else:
+        print(f"Error fetching market data: {response.text}")
+        return None
+
+# Function to place an order (simulated for safety reasons)
+def place_order(instrument_token, transaction_type, quantity, price):
+    print(f"Simulating order placement: {transaction_type.upper()} {quantity} units of {instrument_token} at ₹{price}")
+    # You'll need to replace this with actual order placement logic using SmartAPI's order APIs
+
+# Main program logic
+if __name__ == "__main__":
+    get_access_token()  # Fetch access token before proceeding
+
+    # Example index symbols (replace with desired indices)
+    symbols = ["NIFTY", "BANKNIFTY"]
+
+    for symbol in symbols:
+        instrument_info = get_instrument_info(symbol)
+        if instrument_info:
+            instrument_token = instrument_info["instrument_token"]
+
+            while True:  # Continuously check market data (replace with appropriate interval)
+                market_data = get_market_data(instrument_token)
+                if market_data:
+                    opening_high = market_data["open"]
+                    opening_low = market_data["low"]
+                    last_price = market_data["last_price"]
+
+                    # Break after market opens to avoid pre-market data
+                    if last_price > opening_high or last_price < opening_low:
+                        break
+
+                    time.sleep(5)  # Adjust polling interval as needed
+
+                else:
+                    print("Error getting market data. Retrying...")
+                    time.sleep(10)  # Wait before retrying
+
+            # Simulate order placement based on strategy (replace with actual logic)
+            if last_price > opening_high + 5:
+                place_order(instrument_token, "buy", 1, last_price)
+            elif last_price < opening_low - 5:
+                place_order(instrument_token, "sell
